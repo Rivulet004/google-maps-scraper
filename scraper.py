@@ -11,13 +11,14 @@ import csv
 
 
 class ScrapGoogleMap:
-    list = []
-    location_data = {}
+    
 
     def __init__(self, query):
         self.query = query
         self.driver = webdriver.Firefox()
         self.all_listings = []
+        self.list = []
+        self.location_data = {}
 
     def open_webpage(self):
         # driver = webdriver.Firefox()
@@ -31,7 +32,7 @@ class ScrapGoogleMap:
         self.driver.get(url)
         print("firefox opened")
 
-    def scroll_to_botton(self):
+    def scroll_to_bottom(self):
         div_sidebar = self.driver.find_element(
             By.CSS_SELECTOR, f"div[aria-label='Results for {self.query}']"
         )
@@ -148,13 +149,19 @@ class ScrapGoogleMap:
     def extract_data(self):
         print("Converting collected data into a CSV file")
         with open(f"{self.query}", mode="w", newline="") as file:
-            writer = csv.DictWriter(file, fieldnames=list[0].keys())
+            writer = csv.DictWriter(file, fieldnames=self.list[0].keys())
 
             writer.writeheader()
 
             for row in list:
                 writer.wirterow()
         print("Converted all data to the CSV file")
+
+
+    def close_borwser(self):
+        print("Closing Browser")
+        self.driver.quit()
+        print("Browser Closed")
 
 
 def main():
@@ -165,10 +172,11 @@ def main():
 
     scraper = ScrapGoogleMap(query)
     scraper.open_webpage()
-    scraper.scroll_to_botton()
+    scraper.scroll_to_bottom()
     scraper.retrieve_listing()
     scraper.collect_data()
     scraper.extract_data()
+    scraper.close_borwser()
 
 
 if __name__ == "__main__":
