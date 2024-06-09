@@ -72,7 +72,7 @@ class ScrapGoogleMap:
         for listing in self.all_listings:
             print(f"Collecting data of list no. {i}")
             listing.click()
-            time.sleep(3)
+            time.sleep(3)   # Delay for the list to load
 
             self.location_data = {
                 "name": "NA",
@@ -86,7 +86,7 @@ class ScrapGoogleMap:
             }
 
             try:
-                name = self.driver.find_element(By.CLASS_NAME, "a5H0ec")
+                name = self.driver.find_element(By.CSS_SELECTOR, ".DUwDvf.lfPIob")
             except NoSuchElementException:
                 name = None
 
@@ -151,7 +151,7 @@ class ScrapGoogleMap:
             self.list_info.append(self.location_data)
             print(f"Collected data of list no. {i}")
             print(self.location_data)
-            if i == 3:
+            if i == 1:
                 print("breaking only in testing phase")
                 break
             i += 1
@@ -184,7 +184,7 @@ def main():
 
     scraper = ScrapGoogleMap(query)
     scraper.open_webpage()
-    scraper.scroll_to_bottom()
+    # scraper.scroll_to_bottom() just for testing
     scraper.retrieve_listing()
     scraper.collect_data()
     scraper.extract_data()
