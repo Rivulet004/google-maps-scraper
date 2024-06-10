@@ -20,7 +20,7 @@ Reset = "\033[0m"
 
 
 class ScrapGoogleMap:
-    def __init__(self, query):
+    def __init__(self, query, location, type):
         self.query = query
         self.driver = webdriver.Firefox()
         self.all_listings = []
@@ -62,7 +62,7 @@ class ScrapGoogleMap:
         if self.all_listings:
             print(f"{len(self.all_listings)} listings retrieved")
         else:
-            print(Red + "No listings found" + Reset)
+            print(Yellow + "No listings found" + Reset)
 
     def collect_listing_data(self):
         i = 1
@@ -72,6 +72,8 @@ class ScrapGoogleMap:
         for listing in self.all_listings:
             print(Yellow + f"Collecting data from listing {i}..." + Reset)
             listing.click()
+
+            # add time for the lisitng to load
             time.sleep(1)
 
             self.location_data = {
@@ -185,17 +187,31 @@ class ScrapGoogleMap:
 
 def main():
     if len(sys.argv) > 1:
-        query = " ".join(sys.argv[1:])
+        location = " ".join(sys.argv[1:])
     else:
-        query = pyperclip.paste()
+        location = pyperclip.paste()
 
-    scraper = ScrapGoogleMap(query)
-    scraper.open_google_maps()
-    scraper.scroll_to_load_all_listings()
-    scraper.retrieve_listings()
-    scraper.collect_listing_data()
-    scraper.save_data_to_csv()
-    scraper.close_browser()
+    with open("business_list.txt", "r") as file:
+        business_list = file.readlines()
+
+    cleaned_business_list = [entry.strip() for entry in business_list]
+
+    for type in cleaned_business_list:
+
+        query = f"{type} in {location}"
+
+        print(f"{query} | {type} | {location}")
+        time.sleep(0.1)
+        # scraper = ScrapGoogleMap(query, location, type)
+        # scraper.open_google_maps()
+        # scraper.scroll_to_load_all_listings()
+        # scraper.retrieve_listings()
+        # scraper.collect_listing_data()
+        # scraper.save_data_to_csv()
+        # scraper.close_browser()
+    print(Yellow + "Terminating Program" + Reset)
+    print(Red + "Program Terminated Sucessfully" + Reset)
+
 
 
 if __name__ == "__main__":
