@@ -7,6 +7,18 @@ import time
 import csv
 
 
+# Color to Stylize output
+
+Red = "\033[31m"
+Green = "\033[32m"
+Yellow = "\033[33m"
+Blue = "\033[34m"
+Magenta = "\033[35m"
+Cyan = "\033[36m"
+White = "\033[37m"
+Reset = "\033[0m"
+
+
 class ScrapGoogleMap:
     def __init__(self, query):
         self.query = query
@@ -22,16 +34,16 @@ class ScrapGoogleMap:
         for i in range(1, len(split)):
             url += f"+{split[i]}"
 
-        print(f"Opening Google Maps for query: {self.query}")
+        print(Red + f"Opening Google Maps for query: {self.query}" + Reset)
         self.driver.get(url)
-        print("Google Maps opened")
+        print(Green + "Google Maps opened" + Reset)
 
     def scroll_to_load_all_listings(self):
         div_sidebar = self.driver.find_element(
             By.CSS_SELECTOR, f"div[aria-label='Results for {self.query}']"
         )
         keepScrolling = True
-        print("Scrolling through listings to load all results", end="")
+        print(Yellow + "Scrolling through listings to load all results" + Reset)
         while keepScrolling:
             div_sidebar.send_keys(Keys.PAGE_DOWN)
             time.sleep(0.5)
@@ -42,7 +54,7 @@ class ScrapGoogleMap:
             )
             if "You've reached the end of the list." in html:
                 keepScrolling = False
-        print("All listings loaded")
+        print(Green + "All listings loaded" + Reset)
 
     def retrieve_listings(self):
         print(f"Retrieving all listings for query: {self.query}")
@@ -50,27 +62,28 @@ class ScrapGoogleMap:
         if self.all_listings:
             print(f"{len(self.all_listings)} listings retrieved")
         else:
-            print("No listings found")
+            print(Red + "No listings found" + Reset)
 
     def collect_listing_data(self):
         i = 1
         if not self.all_listings:
-            print("No listings found to collect data from.")
+            print(Red + "No listings found to collect data from." + Reset)
             return
         for listing in self.all_listings:
-            print(f"Collecting data from listing {i}...")
+            print(Yellow + f"Collecting data from listing {i}..." + Reset)
             listing.click()
             time.sleep(1)
 
             self.location_data = {
                 "name": "NA",
                 "type": "NA",
+                "listing-url": "NA",
                 "rating": "NA",
                 "reviews_count": "NA",
                 "location": "NA",
                 "contact": "NA",
                 "website": "NA",
-                "isClaimed": False,
+                "claimed": False,
             }
 
             try:
@@ -78,6 +91,10 @@ class ScrapGoogleMap:
             except NoSuchElementException:
                 name = None
 
+            try:
+                listing_url = self.driver.current_url
+            except NoSuchElementException:
+                listing_url = None
             try:
                 type = self.driver.find_element(By.CLASS_NAME, "DkEaL")
             except NoSuchElementException:
@@ -113,11 +130,12 @@ class ScrapGoogleMap:
                 phone_number = None
 
             try:
-                website = self.driver.find_element(
-                    By.CSS_SELECTOR, "[data-item-id='authority']"
+                website_element = self.driver.find_element(
+                    By.CSS_SELECTOR, "a.lcr4fd.S9kvJb[data-tooltip='Open website']"
                 )
+                website_url = website_element.get_attribute("href")
             except NoSuchElementException:
-                website = None
+                website_url = "NA"
 
             try:
                 isNotClaimed = self.driver.find_element(
@@ -128,23 +146,25 @@ class ScrapGoogleMap:
 
             self.location_data["name"] = name.text if name else "NA"
             self.location_data["type"] = type.text if type else "NA"
+            self.location_data["listing-url"] = listing_url if listing_url else "NA"
             self.location_data["rating"] = avg_rating.text if avg_rating else "NA"
             self.location_data["reviews_count"] = (
                 total_reviews.text[1:-1] if total_reviews else "NA"
             )
             self.location_data["location"] = address.text if address else "NA"
             self.location_data["contact"] = phone_number.text if phone_number else "NA"
-            self.location_data["website"] = website.text if website else "NA"
-            self.location_data["isClaimed"] = False if isNotClaimed else True
+            self.location_data["website"] = website_url if website_url else "NA"
+            self.location_data["claimed"] = False if isNotClaimed else True
 
             self.list_info.append(self.location_data)
-            print(f"Collected data from listing {i}: {self.location_data}")
+            print(Green + f"Collected data from listing {i}:" + Reset)
+            print(Blue + f"{self.location_data}" + Reset)
             i += 1
 
     def save_data_to_csv(self):
-        print("Saving collected data to CSV file...")
+        print(Yellow + "Saving collected data to CSV file..." + Reset)
         if not self.list_info:
-            print("No data to write to CSV.")
+            print(Red + "No data to write to CSV." + Reset)
             return
         with open(
             f"data/{self.query}.csv", mode="w", newline="", encoding="utf-8"
@@ -155,12 +175,12 @@ class ScrapGoogleMap:
 
             for row in self.list_info:
                 writer.writerow(row)
-        print(f"Data saved to {self.query}.csv successfully.")
+        print(Green + f"Data saved to {self.query}.csv successfully." + Reset)
 
     def close_browser(self):
-        print("Closing the browser...")
+        print(Yellow + "Closing the browser..." + Reset)
         self.driver.quit()
-        print("Browser closed")
+        print(Green + "Browser closed" + Reset)
 
 
 def main():
