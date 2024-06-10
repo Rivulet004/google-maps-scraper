@@ -1,6 +1,3 @@
-#! python3
-# scrap.py
-
 import sys, pyperclip
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -11,39 +8,30 @@ import csv
 
 
 class ScrapGoogleMap:
-
     def __init__(self, query):
         self.query = query
-        self.driver = webdriver.Firefox()  # browser
-        self.all_listings = []  # to get all the listings
-        self.list_info = []  # to store the dictionary of each listing
-        self.location_data = (
-            {}
-        )  # dictionary for temporarily storing data of the listing before being parsed to the self.list_info
+        self.driver = webdriver.Firefox()
+        self.all_listings = []
+        self.list_info = []
+        self.location_data = {}
 
-    def open_webpage(self):
+    def open_google_maps(self):
         url = "https://www.google.com/maps/search/"
-
-        # Convert the queary that user provied into URL that can be searched
         split = self.query.split()
         url = url + split[0]
         for i in range(1, len(split)):
             url += f"+{split[i]}"
 
-        # Open firefox browser
-        print("opening firefox at: ")
-        print(url)
+        print(f"Opening Google Maps for query: {self.query}")
         self.driver.get(url)
-        print("firefox opened")
+        print("Google Maps opened")
 
-    def scroll_to_bottom(self):
+    def scroll_to_load_all_listings(self):
         div_sidebar = self.driver.find_element(
             By.CSS_SELECTOR, f"div[aria-label='Results for {self.query}']"
         )
-
-        # Scrolling to the bottom of Page
         keepScrolling = True
-        print("Scrolling to bottom to load all listing because of AJAX")
+        print("Scrolling through listings to load all results", end="")
         while keepScrolling:
             div_sidebar.send_keys(Keys.PAGE_DOWN)
             time.sleep(0.5)
@@ -54,25 +42,25 @@ class ScrapGoogleMap:
             )
             if "You've reached the end of the list." in html:
                 keepScrolling = False
-        print("Scrolled to Bottom")
+        print("All listings loaded")
 
-    def retrieve_listing(self):
-        print("Retrieving Listings")
+    def retrieve_listings(self):
+        print(f"Retrieving all listings for query: {self.query}")
         self.all_listings = self.driver.find_elements(By.CLASS_NAME, "hfpxzc")
         if self.all_listings:
             print(f"{len(self.all_listings)} listings retrieved")
         else:
-            print("NO listings found")
+            print("No listings found")
 
-    def collect_data(self):
+    def collect_listing_data(self):
         i = 1
         if not self.all_listings:
-            print("no data to collect as no listings are found")
+            print("No listings found to collect data from.")
             return
         for listing in self.all_listings:
-            print(f"Collecting data of list no. {i}")
+            print(f"Collecting data from listing {i}...")
             listing.click()
-            time.sleep(3)   # Delay for the list to load
+            time.sleep(1)
 
             self.location_data = {
                 "name": "NA",
@@ -97,14 +85,15 @@ class ScrapGoogleMap:
 
             try:
                 avg_rating = self.driver.find_element(
-                    By.CLASS_NAME, "section-star-display"
+                    By.CSS_SELECTOR, ".F7nice > span > span[aria-hidden='true']"
                 )
             except NoSuchElementException:
                 avg_rating = None
 
             try:
                 total_reviews = self.driver.find_element(
-                    By.CLASS_NAME, "section-rating-term"
+                    By.CSS_SELECTOR,
+                    ".F7nice > span > span > span[aria-label*='reviews']",
                 )
             except NoSuchElementException:
                 total_reviews = None
@@ -132,7 +121,7 @@ class ScrapGoogleMap:
 
             try:
                 isNotClaimed = self.driver.find_element(
-                    By.CSS_SELECTOR, "div[aria-label='Claim this business']"
+                    By.CSS_SELECTOR, "a[data-item-id='merchant'] .Io6YTe"
                 )
             except NoSuchElementException:
                 isNotClaimed = None
@@ -149,46 +138,44 @@ class ScrapGoogleMap:
             self.location_data["isClaimed"] = False if isNotClaimed else True
 
             self.list_info.append(self.location_data)
-            print(f"Collected data of list no. {i}")
-            print(self.location_data)
-            if i == 1:
-                print("breaking only in testing phase")
-                break
+            print(f"Collected data from listing {i}: {self.location_data}")
             i += 1
 
-    def extract_data(self):
-        print("Converting collected data into a CSV file")
+    def save_data_to_csv(self):
+        print("Saving collected data to CSV file...")
         if not self.list_info:
-            print("No data to write to CSV")
+            print("No data to write to CSV.")
             return
-        with open(f"data/{self.query}.csv", mode="w", newline="", encoding="utf-8") as file:
+        with open(
+            f"data/{self.query}.csv", mode="w", newline="", encoding="utf-8"
+        ) as file:
             writer = csv.DictWriter(file, fieldnames=self.list_info[0].keys())
 
             writer.writeheader()
 
             for row in self.list_info:
                 writer.writerow(row)
-        print("Converted all data to the CSV file")
+        print(f"Data saved to {self.query}.csv successfully.")
 
-    def close_borwser(self):
-        print("Closing Browser")
+    def close_browser(self):
+        print("Closing the browser...")
         self.driver.quit()
-        print("Browser Closed")
+        print("Browser closed")
 
 
 def main():
-    if (len(sys.argv)) > 1:
+    if len(sys.argv) > 1:
         query = " ".join(sys.argv[1:])
     else:
         query = pyperclip.paste()
 
     scraper = ScrapGoogleMap(query)
-    scraper.open_webpage()
-    # scraper.scroll_to_bottom() just for testing
-    scraper.retrieve_listing()
-    scraper.collect_data()
-    scraper.extract_data()
-    scraper.close_borwser()
+    scraper.open_google_maps()
+    scraper.scroll_to_load_all_listings()
+    scraper.retrieve_listings()
+    scraper.collect_listing_data()
+    scraper.save_data_to_csv()
+    scraper.close_browser()
 
 
 if __name__ == "__main__":
