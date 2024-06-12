@@ -1,4 +1,10 @@
-import sys, pyperclip, os
+import sys
+import pyperclip
+import os
+import time
+import csv
+import urllib.parse
+from facebook_scraper import FacebookEmailScraper
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -6,9 +12,6 @@ from selenium.common.exceptions import (
     NoSuchElementException,
     ElementClickInterceptedException,
 )
-import time
-import csv
-
 
 # Color to Stylize output
 
@@ -23,24 +26,21 @@ Reset = "\033[0m"
 
 
 class ScrapGoogleMap:
-    def __init__(self, query, location, type):
+    def __init__(self, query, location, business_type):
         self.query = query
         self.location = location
-        self.type = type
+        self.type = business_type
         self.driver = webdriver.Firefox()
         self.all_listings = []
         self.list_info = []
         self.location_data = {}
         self.counter = 0
+        self.fb_email_scraper = FacebookEmailScraper(self.driver)
 
     def open_google_maps(self):
-        url = "https://www.google.com/maps/search/"
-
-        # Create a searchable url by the browser
-        split = self.query.split()
-        url = url + split[0]  # initialize the url to avoid the + sign in the start
-        for i in range(1, len(split)):
-            url += f"+{split[i]}"
+        base_url = "https://www.google.com/maps/search/"
+        encoded_url = urllib.parse.quote(self.query)
+        url = base_url + encoded_url
 
         print(Yellow + f"Opening Google Maps for query: {self.query}" + Reset)
         self.driver.get(url)
@@ -50,9 +50,9 @@ class ScrapGoogleMap:
         div_sidebar = self.driver.find_element(
             By.CSS_SELECTOR, f"div[aria-label='Results for {self.query}']"
         )
-        keepScrolling = True
+        keep_scrolling = True
         print(Yellow + "Scrolling through listings to load all results..." + Reset)
-        while keepScrolling:
+        while keep_scrolling:
             div_sidebar.send_keys(Keys.PAGE_DOWN)
             time.sleep(0.5)
             div_sidebar.send_keys(Keys.PAGE_DOWN)
@@ -61,7 +61,7 @@ class ScrapGoogleMap:
                 "outerHTML"
             )
             if "You've reached the end of the list." in html:
-                keepScrolling = False
+                keep_scrolling = False
         print(Green + "All listings loaded" + Reset)
 
     def retrieve_listings(self):
@@ -89,7 +89,7 @@ class ScrapGoogleMap:
                 time.sleep(0.3)
                 self.driver.execute_script("arguments[0].click();", listing)
 
-                # add time for the lisitng to load
+                # add time for the listing to load
                 time.sleep(0.3)
 
             except ElementClickInterceptedException:
@@ -104,6 +104,7 @@ class ScrapGoogleMap:
             self.location_data = {
                 "name": "NA",
                 "type": "NA",
+                "email": "NA",
                 "listing-url": "NA",
                 "rating": "NA",
                 "reviews_count": "NA",
@@ -113,6 +114,7 @@ class ScrapGoogleMap:
                 "claimed": False,
             }
 
+            # Collect Data
             try:
                 name = self.driver.find_element(By.CSS_SELECTOR, ".DUwDvf.lfPIob")
             except NoSuchElementException:
@@ -124,9 +126,9 @@ class ScrapGoogleMap:
                 listing_url = None
 
             try:
-                type = self.driver.find_element(By.CLASS_NAME, "DkEaL")
+                type_of_business = self.driver.find_element(By.CLASS_NAME, "DkEaL")
             except NoSuchElementException:
-                type = None
+                type_of_business = None
 
             try:
                 avg_rating = self.driver.find_element(
@@ -166,14 +168,23 @@ class ScrapGoogleMap:
                 website_url = "NA"
 
             try:
-                isNotClaimed = self.driver.find_element(
+                is_not_claimed = self.driver.find_element(
                     By.CSS_SELECTOR, "a[data-item-id='merchant'] .Io6YTe"
                 )
             except NoSuchElementException:
-                isNotClaimed = None
+                is_not_claimed = None
 
+                if "www.facebook.com" in website_url:
+                    email = self.fb_email_scraper.get_email(website_url)
+                    self.location_data["email"] = email
+                else:
+                    self.location_data["email"] = "NA"
+
+            # Assign Collected Data
             self.location_data["name"] = name.text if name else "NA"
-            self.location_data["type"] = type.text if type else "NA"
+            self.location_data["type"] = (
+                type_of_business.text if type_of_business else "NA"
+            )
             self.location_data["listing-url"] = listing_url if listing_url else "NA"
             self.location_data["rating"] = avg_rating.text if avg_rating else "NA"
             self.location_data["reviews_count"] = (
@@ -182,7 +193,7 @@ class ScrapGoogleMap:
             self.location_data["location"] = address.text if address else "NA"
             self.location_data["contact"] = phone_number.text if phone_number else "NA"
             self.location_data["website"] = website_url if website_url else "NA"
-            self.location_data["claimed"] = False if isNotClaimed else True
+            self.location_data["claimed"] = False if is_not_claimed else True
 
             self.list_info.append(self.location_data)
             print(Green + f"Collected data from listing {i}:" + Reset)
@@ -233,16 +244,15 @@ def main():
     cleaned_business_list = [entry.strip() for entry in business_list]
     total_counter = 0
 
-    for type in cleaned_business_list:
-
-        query = f"{type} in {location}"
+    for business_type in cleaned_business_list:
+        query = f"{business_type} in {location}"
         print(
             Cyan
             + "<――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――>"
             + Reset
         )
         print(Magenta + f"Initializing Scraper for the query: {query}" + Reset)
-        scraper = ScrapGoogleMap(query, location, type)
+        scraper = ScrapGoogleMap(query, location, business_type)
         print(Green + f"Scraper initialized" + Reset)
         scraper.open_google_maps()
         scraper.scroll_to_load_all_listings()
@@ -260,7 +270,7 @@ def main():
         )
 
     print(Yellow + "Terminating Program" + Reset)
-    print(Red + "Program Terminated Sucessfully" + Reset)
+    print(Red + "Program Terminated Successfully" + Reset)
 
 
 if __name__ == "__main__":
