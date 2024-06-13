@@ -8,11 +8,16 @@ from facebook_scraper import FacebookEmailScraper
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import (
     NoSuchElementException,
     ElementClickInterceptedException,
-    StaleElementReferenceException
+    TimeoutException
+    # StaleElementReferenceException
 )
+
+from exception_handler import handle_stale_exception
 
 # Color and Styles for the output
 
@@ -78,146 +83,127 @@ class ScrapGoogleMap:
         self.all_listings = self.driver.find_elements(By.CLASS_NAME, "hfpxzc")
         if self.all_listings:
             print(f"{len(self.all_listings)} listings retrieved")
-            self.counter += len(self.all_listings)
+            self.counter = len(self.all_listings)
         else:
             print(Yellow + "No listings found" + Reset)
 
     def collect_listing_data(self):
         i = 1
         if not self.all_listings:
-            print(Red + "No listings found to collect data from." + Reset)
+            self.print_no_listings_message()
             return
         for listing in self.all_listings:
-            print(Yellow + f"Collecting data from listing {i}..." + Reset)
-
-            # Using JS to clink the element
-            try:
-                self.driver.execute_script(
-                    "arguments[0].scrollIntoView(true);", listing
-                )
-                time.sleep(0.5)
-                self.driver.execute_script("arguments[0].click();", listing)
-
-                # add time for the listing to load
-                time.sleep(0.3)
-
-            except ElementClickInterceptedException:
-                print(
-                    Red
-                    + f"Listing {i} is not clickable. Skipping to the next listing."
-                    + Reset
-                )
+            self.print_collecting_message(i)
+            if not self.click_listing(listing):
                 i += 1
                 continue
 
-            self.location_data = {
-                "name": "NA",
-                "type": "NA",
-                "email": "NA",
-                "listing-url": "NA",
-                "rating": "NA",
-                "reviews_count": "NA",
-                "location": "NA",
-                "contact": "NA",
-                "website": "NA",
-                "claimed": "NA",
-            }
-
-            # Collect Data
-            try:
-                name = self.driver.find_element(By.CSS_SELECTOR, ".DUwDvf.lfPIob")
-            except NoSuchElementException:
-                name = None
-
-            try:
-                listing_url = self.driver.current_url
-            except NoSuchElementException:
-                listing_url = None
-
-            try:
-                type_of_business = self.driver.find_element(By.CLASS_NAME, "DkEaL")
-            except NoSuchElementException:
-                type_of_business = None
-
-            try:
-                avg_rating = self.driver.find_element(
-                    By.CSS_SELECTOR, ".F7nice > span > span[aria-hidden='true']"
-                )
-            except NoSuchElementException:
-                avg_rating = None
-
-            try:
-                total_reviews = self.driver.find_element(
-                    By.CSS_SELECTOR,
-                    ".F7nice > span > span > span[aria-label*='reviews']",
-                )
-            except NoSuchElementException:
-                total_reviews = None
-
-            try:
-                address = self.driver.find_element(
-                    By.CSS_SELECTOR, "[data-item-id='address']"
-                )
-            except NoSuchElementException:
-                address = None
-
-            try:
-                phone_number = self.driver.find_element(
-                    By.CSS_SELECTOR, "[data-tooltip='Copy phone number']"
-                )
-            except NoSuchElementException:
-                phone_number = None
-
-            try:
-                website_element = self.driver.find_element(
-                    By.CSS_SELECTOR, "a.lcr4fd.S9kvJb[data-tooltip='Open website']"
-                )
-                try:
-                    website_url = website_element.get_attribute("href")
-                except StaleElementReferenceException:
-                    website_url = "Stale Exception"
-            except NoSuchElementException:
-                website_url = "NA"
-
-            try:
-                is_not_claimed = self.driver.find_element(
-                    By.CSS_SELECTOR, "a[data-item-id='merchant'] .Io6YTe"
-                )
-            except NoSuchElementException:
-                is_not_claimed = None
-
-                if "www.facebook.com" in website_url:
-                    email = self.fb_email_scraper.get_email(website_url)
-                    self.location_data["email"] = email
-                else:
-                    self.location_data["email"] = "NA"
-
-            # Assign Collected Data
-            try:
-                self.location_data["name"] = name.text if name else "NA"
-                self.location_data["type"] = (
-                    type_of_business.text if type_of_business else "NA"
-                )
-                self.location_data["listing-url"] = listing_url if listing_url else "NA"
-                self.location_data["rating"] = avg_rating.text if avg_rating else "NA"
-                self.location_data["reviews_count"] = (
-                    total_reviews.text[1:-1] if total_reviews else "NA"
-                )
-                self.location_data["location"] = address.text if address else "NA"
-                self.location_data["contact"] = phone_number.text if phone_number else "NA"
-                self.location_data["website"] = website_url if website_url else "NA"
-                self.location_data["claimed"] = False if is_not_claimed else True
-            except StaleElementReferenceException:
-                print(Bold + "Error: Stale Error")
-                pass
+            self.initialize_location_data()
+            self.extract_listing_data()
+            self.assign_collected_data()
 
             self.list_info.append(self.location_data)
-            print(Green + f"Collected data from listing {i}:" + Reset)
-            print(Blue + f"{self.location_data}" + Reset)
-
-            # if i == 2:
-            #     break
+            self.print_collected_data_message(i)
             i += 1
+
+    def print_no_listings_message(self):
+        print(Red + "No listings found to collect data from." + Reset)
+
+    def print_collecting_message(self, i):
+        print(Yellow + f"Collecting data from listing {i}..." + Reset)
+
+    def click_listing(self, listing):
+        try:
+            self.driver.execute_script("arguments[0].scrollIntoView(true);", listing)
+            time.sleep(0.2)
+            self.driver.execute_script("arguments[0].click();", listing)
+            print("Element clicked")
+            time.sleep(0.3)
+            return True
+        except ElementClickInterceptedException:
+            print(Red + "Listing is not clickable. Skipping to the next listing." + Reset)
+            return False
+
+    def initialize_location_data(self):
+        self.location_data = {
+            "name": "NA",
+            "type": "NA",
+            "email": "NA",
+            "listing-url": "NA",
+            "rating": "NA",
+            "reviews_count": "NA",
+            "location": "NA",
+            "contact": "NA",
+            "website": "NA",
+            "claimed": "NA",
+        }
+
+    def extract_listing_data(self):
+        self.name = self.get_element_text(By.CSS_SELECTOR, ".DUwDvf.lfPIob")
+        self.listing_url = self.driver.current_url
+        self.type_of_business = self.get_element_text(By.CLASS_NAME, "DkEaL")
+        self.avg_rating = self.get_element_text(By.CSS_SELECTOR, ".F7nice > span > span[aria-hidden='true']")
+        self.total_reviews = self.get_element_text(By.CSS_SELECTOR,
+                                                   ".F7nice > span > span > span[aria-label*='reviews']")
+        self.address = self.get_element_text(By.CSS_SELECTOR, "[data-item-id='address']")
+        self.phone_number = self.get_element_text(By.CSS_SELECTOR, "[data-tooltip='Copy phone number']")
+        self.website_url = self.get_website_url()
+        self.is_not_claimed = self.get_element(By.CSS_SELECTOR, "a[data-item-id='merchant'] .Io6YTe")
+        if self.website_url:
+            if "www.facebook.com" in self.website_url:
+                self.email = self.fb_email_scraper.get_email(self.website_url)
+            else:
+                self.email = "NA"
+        else:
+            self.email = "NA"
+
+    def get_element(self, by, value):
+        if value == ".DUwDvf.lfPIob":
+            try:
+                element = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((by, value)))
+                # return self.driver.find_element(by, value)
+                return element
+            except (NoSuchElementException, TimeoutException) as e:
+                print('No such element' + value)
+                print(e)
+                return None
+        else:
+            try:
+                return self.driver.find_element(by, value)
+            except NoSuchElementException as e:
+                print('No such element' + value)
+                print(e)
+                return None
+
+    @handle_stale_exception(3)
+    def get_element_text(self, by, value):
+        if element := self.get_element(by, value):
+            return element.text
+        else:
+            return None
+
+    @handle_stale_exception(3)
+    def get_website_url(self):
+        if website_element := self.get_element(By.CSS_SELECTOR, "a.lcr4fd.S9kvJb[data-tooltip='Open website']"):
+            return website_element.get_attribute('href')
+        else:
+            return None
+
+    def assign_collected_data(self):
+        self.location_data["name"] = self.name if self.name else "NA"
+        self.location_data["type"] = self.type_of_business if self.type_of_business else "NA"
+        self.location_data["listing-url"] = self.listing_url if self.listing_url else "NA"
+        self.location_data["rating"] = self.avg_rating if self.avg_rating else "NA"
+        self.location_data["reviews_count"] = self.total_reviews if self.total_reviews else "NA"
+        self.location_data["location"] = self.address if self.address else "NA"
+        self.location_data["contact"] = self.phone_number if self.phone_number else "NA"
+        self.location_data["website"] = self.website_url if self.website_url else "NA"
+        self.location_data["claimed"] = False if self.is_not_claimed else True
+        self.location_data["email"] = self.email
+
+    def print_collected_data_message(self, i):
+        print(Green + f"Collected data from listing {i}:" + Reset)
+        print(Blue + f"{self.location_data}" + Reset)
 
     def save_data_to_csv(self):
         print(Yellow + "Saving collected data to CSV file..." + Reset)
@@ -225,10 +211,10 @@ class ScrapGoogleMap:
             print(Red + "No data to write to CSV." + Reset)
             return
         with open(
-            f"data/{self.location}/{self.query}.csv",
-            mode="w",
-            newline="",
-            encoding="utf-8",
+                f"data/{self.location}/{self.query}.csv",
+                mode="w",
+                newline="",
+                encoding="utf-8",
         ) as file:
             writer = csv.DictWriter(file, fieldnames=self.list_info[0].keys())
 
