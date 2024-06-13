@@ -1,6 +1,8 @@
 import time
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 
 class FacebookEmailScraper:
@@ -13,15 +15,26 @@ class FacebookEmailScraper:
         # Open the new tab
         if "www.facebook.com" in facebook_url:
             self.driver.switch_to.new_window("tab")
-            facebook_url = facebook_url + "about"
+            if facebook_url[-1] == "/":
+                facebook_url = facebook_url + "about"
+            else:
+                facebook_url = facebook_url + "/about"
 
             self.driver.get(facebook_url)
             time.sleep(0.5)
-            # Close popup
-            popup = self.driver.find_element(By.XPATH, "//div[@aria-label='Close']")
-            popup.click()
-            time.sleep(0.5)
 
+            # Close popup
+            try:
+                popup = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Close']"))
+                )
+                # popup = self.driver.find_element(By.XPATH, "//div[@aria-label='Close']")
+                popup.click()
+                time.sleep(0.5)
+            except TimeoutException:
+                pass
+
+            # Scrape Email
             try:
                 email_element = self.driver.find_element(
                     By.XPATH,
@@ -39,14 +52,3 @@ class FacebookEmailScraper:
             return email
         else:
             return None
-
-
-# def main():
-#     driver = webdriver.Firefox()
-#     fb = FacebookEmailScraper(driver)
-#     email = fb.get_email("https://www.facebook.com/LucasMartialArts/")
-#     print(email)
-#
-#
-# if __name__ == "__main__":
-#     main()

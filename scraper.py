@@ -11,9 +11,10 @@ from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import (
     NoSuchElementException,
     ElementClickInterceptedException,
+    StaleElementReferenceException
 )
 
-# Color to Stylize output
+# Color and Styles for the output
 
 Red = "\033[31m"
 Green = "\033[32m"
@@ -23,6 +24,10 @@ Magenta = "\033[35m"
 Cyan = "\033[36m"
 White = "\033[37m"
 Reset = "\033[0m"
+Bold = "\x1b[1m"
+Underline = "\x1b[4m"
+blink = "\x1b[5m"
+reverse = "\x1b[7m"
 
 
 class ScrapGoogleMap:
@@ -47,22 +52,26 @@ class ScrapGoogleMap:
         print(Green + "Google Maps opened" + Reset)
 
     def scroll_to_load_all_listings(self):
-        div_sidebar = self.driver.find_element(
-            By.CSS_SELECTOR, f"div[aria-label='Results for {self.query}']"
-        )
-        keep_scrolling = True
-        print(Yellow + "Scrolling through listings to load all results..." + Reset)
-        while keep_scrolling:
-            div_sidebar.send_keys(Keys.PAGE_DOWN)
-            time.sleep(0.5)
-            div_sidebar.send_keys(Keys.PAGE_DOWN)
-            time.sleep(0.5)
-            html = self.driver.find_element(By.TAG_NAME, "html").get_attribute(
-                "outerHTML"
+        try:
+            div_sidebar = self.driver.find_element(
+                By.CSS_SELECTOR, f"div[aria-label='Results for {self.query}']"
             )
-            if "You've reached the end of the list." in html:
-                keep_scrolling = False
-        print(Green + "All listings loaded" + Reset)
+            keep_scrolling = True
+            print(Yellow + "Scrolling through listings to load all results..." + Reset)
+            print(Bold + Red + "Warning: This will take a while" + Reset)
+            while keep_scrolling:
+                div_sidebar.send_keys(Keys.PAGE_DOWN)
+                time.sleep(0.5)
+                div_sidebar.send_keys(Keys.PAGE_DOWN)
+                time.sleep(0.5)
+                html = self.driver.find_element(By.TAG_NAME, "html").get_attribute(
+                    "outerHTML"
+                )
+                if "You've reached the end of the list." in html:
+                    keep_scrolling = False
+            print(Green + "All listings loaded" + Reset)
+        except NoSuchElementException:
+            print(Red + Bold + "No listings loaded" + Reset)
 
     def retrieve_listings(self):
         print(f"Retrieving all listings for query: {self.query}")
@@ -86,7 +95,7 @@ class ScrapGoogleMap:
                 self.driver.execute_script(
                     "arguments[0].scrollIntoView(true);", listing
                 )
-                time.sleep(0.3)
+                time.sleep(0.5)
                 self.driver.execute_script("arguments[0].click();", listing)
 
                 # add time for the listing to load
@@ -111,7 +120,7 @@ class ScrapGoogleMap:
                 "location": "NA",
                 "contact": "NA",
                 "website": "NA",
-                "claimed": False,
+                "claimed": "NA",
             }
 
             # Collect Data
@@ -163,7 +172,10 @@ class ScrapGoogleMap:
                 website_element = self.driver.find_element(
                     By.CSS_SELECTOR, "a.lcr4fd.S9kvJb[data-tooltip='Open website']"
                 )
-                website_url = website_element.get_attribute("href")
+                try:
+                    website_url = website_element.get_attribute("href")
+                except StaleElementReferenceException:
+                    website_url = "Stale Exception"
             except NoSuchElementException:
                 website_url = "NA"
 
@@ -181,19 +193,23 @@ class ScrapGoogleMap:
                     self.location_data["email"] = "NA"
 
             # Assign Collected Data
-            self.location_data["name"] = name.text if name else "NA"
-            self.location_data["type"] = (
-                type_of_business.text if type_of_business else "NA"
-            )
-            self.location_data["listing-url"] = listing_url if listing_url else "NA"
-            self.location_data["rating"] = avg_rating.text if avg_rating else "NA"
-            self.location_data["reviews_count"] = (
-                total_reviews.text[1:-1] if total_reviews else "NA"
-            )
-            self.location_data["location"] = address.text if address else "NA"
-            self.location_data["contact"] = phone_number.text if phone_number else "NA"
-            self.location_data["website"] = website_url if website_url else "NA"
-            self.location_data["claimed"] = False if is_not_claimed else True
+            try:
+                self.location_data["name"] = name.text if name else "NA"
+                self.location_data["type"] = (
+                    type_of_business.text if type_of_business else "NA"
+                )
+                self.location_data["listing-url"] = listing_url if listing_url else "NA"
+                self.location_data["rating"] = avg_rating.text if avg_rating else "NA"
+                self.location_data["reviews_count"] = (
+                    total_reviews.text[1:-1] if total_reviews else "NA"
+                )
+                self.location_data["location"] = address.text if address else "NA"
+                self.location_data["contact"] = phone_number.text if phone_number else "NA"
+                self.location_data["website"] = website_url if website_url else "NA"
+                self.location_data["claimed"] = False if is_not_claimed else True
+            except StaleElementReferenceException:
+                print(Bold + "Error: Stale Error")
+                pass
 
             self.list_info.append(self.location_data)
             print(Green + f"Collected data from listing {i}:" + Reset)
