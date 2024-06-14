@@ -1,10 +1,7 @@
-import sys
-import pyperclip
-import os
 import time
 import csv
+import pandas as pd
 import urllib.parse
-from facebook_scraper import FacebookEmailScraper
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -17,22 +14,9 @@ from selenium.common.exceptions import (
     # StaleElementReferenceException
 )
 
+from facebook_scraper import FacebookEmailScraper
 from exception_handler import handle_stale_exception
-
-# Color and Styles for the output
-
-Red = "\033[31m"
-Green = "\033[32m"
-Yellow = "\033[33m"
-Blue = "\033[34m"
-Magenta = "\033[35m"
-Cyan = "\033[36m"
-White = "\033[37m"
-Reset = "\033[0m"
-Bold = "\x1b[1m"
-Underline = "\x1b[4m"
-blink = "\x1b[5m"
-reverse = "\x1b[7m"
+from color_and_styles import *
 
 
 class ScrapGoogleMap:
@@ -56,6 +40,7 @@ class ScrapGoogleMap:
         self.driver.get(url)
         print(Green + "Google Maps opened" + Reset)
 
+    @handle_stale_exception(3)
     def scroll_to_load_all_listings(self):
         try:
             div_sidebar = self.driver.find_element(
@@ -115,10 +100,11 @@ class ScrapGoogleMap:
     def click_listing(self, listing):
         try:
             self.driver.execute_script("arguments[0].scrollIntoView(true);", listing)
-            time.sleep(0.2)
+            time.sleep(0.5)
             self.driver.execute_script("arguments[0].click();", listing)
             print("Element clicked")
-            time.sleep(0.3)
+            print(self.driver.current_url)
+            time.sleep(0.5)
             return True
         except ElementClickInterceptedException:
             print(Red + "Listing is not clickable. Skipping to the next listing." + Reset)
@@ -160,19 +146,20 @@ class ScrapGoogleMap:
     def get_element(self, by, value):
         if value == ".DUwDvf.lfPIob":
             try:
-                element = WebDriverWait(self.driver, 2).until(EC.presence_of_element_located((by, value)))
-                # return self.driver.find_element(by, value)
+                element = WebDriverWait(self.driver, 2).until(
+                    EC.presence_of_element_located(
+                        (by, value)
+                    )
+                )
                 return element
             except (NoSuchElementException, TimeoutException) as e:
-                print('No such element' + value)
-                print(e)
+                print(Red + Bold + 'No such element' + "Title not found" + Reset)
                 return None
         else:
             try:
                 return self.driver.find_element(by, value)
-            except NoSuchElementException as e:
+            except NoSuchElementException:
                 print('No such element' + value)
-                print(e)
                 return None
 
     @handle_stale_exception(3)
@@ -224,56 +211,58 @@ class ScrapGoogleMap:
                 writer.writerow(row)
         print(Green + f"Data saved to {self.query}.csv successfully." + Reset)
 
+    def get_duplicates(self):
+        self.duplicate_index = []
+        for i in range(len(self.list_info) - 1):
+            if self.list_info[i] != self.list_info[i + 1]:
+                self.duplicate_index.append(i + 1)
+
+    def resolve_duplicates(self):
+        if self.duplicate_index:
+            for i in self.duplicate_index:
+                print(Red + Bold + Underline + f"Resolving duplicate {i}" + Reset)
+                listing = self.all_listings[i]
+                self.print_collecting_message(i)
+                if not self.click_listing(listing):
+                    print(Red + Bold + Underline + f"Could not resolve as this duplicate" + Reset)
+                    continue
+                self.initialize_location_data()
+                self.extract_listing_data()
+                self.assign_collected_data()
+                self.list_info[i] = self.location_data
+                print(Green + Bold + Underline + f"Resolved this Duplicate: {i}" + Reset)
+                self.print_collected_data_message(i)
+
+
+    def handle_duplicates(self):
+        if self.all_listings:
+            with open(
+                    f"data/{self.location}/{self.query}.csv",
+                    mode="w",
+                    newline="",
+                    encoding="utf-8"
+            ) as file:
+                df = pd.read_csv(file)
+                second_occurrencecs = df[df.duplicated(keep="first")]
+                second_occurrencecs_row_number = second_occurrencecs.index.list()
+
+                for number in second_occurrencecs_row_number:
+                    i = number - 1
+                    print(Red + Bold + Underline + f"Trying to get the data for listing: {i}, DUPLICATE" + Reset)
+                    listing = self.all_listings[number - 2]
+                    self.print_collecting_message(i)
+                    if not self.click_listing(listing):
+                        i += 1
+                        continue
+
+                    self.initialize_location_data()
+                    self.extract_listing_data()
+                    self.assign_collected_data()
+
+                    self.list_info.append(self.location_data)
+                    self.print_collected_data_message(i)
+
     def close_browser(self):
         print(Yellow + "Closing the browser..." + Reset)
         self.driver.quit()
         print(Green + "Browser closed" + Reset)
-
-
-def main():
-    if len(sys.argv) > 1:
-        location = " ".join(sys.argv[1:])
-    else:
-        location = pyperclip.paste()
-
-    # Check if the directory exists to save file if not then create the directory
-    if not os.path.exists(f"data/{location}"):
-        os.makedirs(f"data/{location}")
-
-    with open("business_list.txt", "r") as file:
-        business_list = file.readlines()
-
-    cleaned_business_list = [entry.strip() for entry in business_list]
-    total_counter = 0
-
-    for business_type in cleaned_business_list:
-        query = f"{business_type} in {location}"
-        print(
-            Cyan
-            + "<――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――>"
-            + Reset
-        )
-        print(Magenta + f"Initializing Scraper for the query: {query}" + Reset)
-        scraper = ScrapGoogleMap(query, location, business_type)
-        print(Green + f"Scraper initialized" + Reset)
-        scraper.open_google_maps()
-        scraper.scroll_to_load_all_listings()
-        scraper.retrieve_listings()
-        total_counter += scraper.counter
-        scraper.collect_listing_data()
-        scraper.save_data_to_csv()
-        scraper.close_browser()
-        print(Green + f"Data Scraped for the query: {query}" + Reset)
-        print(Red + f"total entries as of yet {total_counter}" + Reset)
-        print(
-            Cyan
-            + "<――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――>"
-            + Reset
-        )
-
-    print(Yellow + "Terminating Program" + Reset)
-    print(Red + "Program Terminated Successfully" + Reset)
-
-
-if __name__ == "__main__":
-    main()

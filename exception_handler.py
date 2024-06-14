@@ -5,6 +5,7 @@ from selenium.common.exceptions import StaleElementReferenceException
 
 def handle_stale_exception(retries=3, delay=0.4):
     def decorator(func):
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             for attempt in range(retries):
