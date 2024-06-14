@@ -1,4 +1,3 @@
-Real Estate Agencies
 Spas
 Wellness Centers
 Salons
@@ -26,3 +25,4 @@ Restaurants
 Cafes
 Hotels
 Resorts
+Real Estate Agencies

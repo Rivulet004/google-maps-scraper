@@ -4,8 +4,10 @@ import os
 from scraper import ScrapGoogleMap
 
 from color_and_styles import *
+from helper import timed
 
 
+@timed()
 def main():
     if len(sys.argv) > 1:
         location = " ".join(sys.argv[1:])
@@ -37,6 +39,10 @@ def main():
         scraper.retrieve_listings()
         total_counter += scraper.counter
         scraper.collect_listing_data()
+        # resolve duplicates
+        scraper.get_duplicates()
+        scraper.resolve_duplicates()
+        # Save the data
         scraper.save_data_to_csv()
         scraper.close_browser()
         print(Green + f"Data Scraped for the query: {query}" + Reset)

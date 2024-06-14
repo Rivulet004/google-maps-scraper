@@ -1,7 +1,23 @@
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
-
+import time
 from exception_handler import handle_stale_exception
+from color_and_styles import *
+
+
+def timed():
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            start = time.time()
+            func(*args, **kwargs)
+            end = time.time()
+            time_taken = end - start
+            print(Cyan + Magenta + Green + f"Time Taken:  {time_taken}" + Reset)
+            return round(time_taken, 2)
+
+        return wrapper
+
+    return decorator
 
 
 def get_element(self, by, value):

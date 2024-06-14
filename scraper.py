@@ -1,6 +1,6 @@
 import time
 import csv
-import pandas as pd
+# import pandas as pd
 import urllib.parse
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -16,6 +16,7 @@ from selenium.common.exceptions import (
 
 from facebook_scraper import FacebookEmailScraper
 from exception_handler import handle_stale_exception
+from helper import timed
 from color_and_styles import *
 
 
@@ -31,6 +32,7 @@ class ScrapGoogleMap:
         self.counter = 0
         self.fb_email_scraper = FacebookEmailScraper(self.driver)
 
+    @timed()
     def open_google_maps(self):
         base_url = "https://www.google.com/maps/search/"
         encoded_url = urllib.parse.quote(self.query)
@@ -40,6 +42,7 @@ class ScrapGoogleMap:
         self.driver.get(url)
         print(Green + "Google Maps opened" + Reset)
 
+    @timed()
     @handle_stale_exception(3)
     def scroll_to_load_all_listings(self):
         try:
@@ -63,6 +66,7 @@ class ScrapGoogleMap:
         except NoSuchElementException:
             print(Red + Bold + "No listings loaded" + Reset)
 
+    @timed()
     def retrieve_listings(self):
         print(f"Retrieving all listings for query: {self.query}")
         self.all_listings = self.driver.find_elements(By.CLASS_NAME, "hfpxzc")
@@ -72,6 +76,7 @@ class ScrapGoogleMap:
         else:
             print(Yellow + "No listings found" + Reset)
 
+    @timed()
     def collect_listing_data(self):
         i = 1
         if not self.all_listings:
@@ -103,7 +108,6 @@ class ScrapGoogleMap:
             time.sleep(0.5)
             self.driver.execute_script("arguments[0].click();", listing)
             print("Element clicked")
-            print(self.driver.current_url)
             time.sleep(0.5)
             return True
         except ElementClickInterceptedException:
@@ -159,7 +163,7 @@ class ScrapGoogleMap:
             try:
                 return self.driver.find_element(by, value)
             except NoSuchElementException:
-                print('No such element' + value)
+                print('No such element')
                 return None
 
     @handle_stale_exception(3)
@@ -213,16 +217,19 @@ class ScrapGoogleMap:
 
     def get_duplicates(self):
         self.duplicate_index = []
+        print(Red + "Searching for duplicates" + Reset)
         for i in range(len(self.list_info) - 1):
-            if self.list_info[i] != self.list_info[i + 1]:
+            if self.list_info[i] == self.list_info[i + 1]:
                 self.duplicate_index.append(i + 1)
+
+        print(Red + f"{self.duplicate_index}")
 
     def resolve_duplicates(self):
         if self.duplicate_index:
             for i in self.duplicate_index:
-                print(Red + Bold + Underline + f"Resolving duplicate {i}" + Reset)
+                print(Red + Bold + Underline + f"Resolving duplicate {i + 1}" + Reset)
                 listing = self.all_listings[i]
-                self.print_collecting_message(i)
+                self.print_collecting_message(i + 1)
                 if not self.click_listing(listing):
                     print(Red + Bold + Underline + f"Could not resolve as this duplicate" + Reset)
                     continue
@@ -230,37 +237,8 @@ class ScrapGoogleMap:
                 self.extract_listing_data()
                 self.assign_collected_data()
                 self.list_info[i] = self.location_data
-                print(Green + Bold + Underline + f"Resolved this Duplicate: {i}" + Reset)
-                self.print_collected_data_message(i)
-
-
-    def handle_duplicates(self):
-        if self.all_listings:
-            with open(
-                    f"data/{self.location}/{self.query}.csv",
-                    mode="w",
-                    newline="",
-                    encoding="utf-8"
-            ) as file:
-                df = pd.read_csv(file)
-                second_occurrencecs = df[df.duplicated(keep="first")]
-                second_occurrencecs_row_number = second_occurrencecs.index.list()
-
-                for number in second_occurrencecs_row_number:
-                    i = number - 1
-                    print(Red + Bold + Underline + f"Trying to get the data for listing: {i}, DUPLICATE" + Reset)
-                    listing = self.all_listings[number - 2]
-                    self.print_collecting_message(i)
-                    if not self.click_listing(listing):
-                        i += 1
-                        continue
-
-                    self.initialize_location_data()
-                    self.extract_listing_data()
-                    self.assign_collected_data()
-
-                    self.list_info.append(self.location_data)
-                    self.print_collected_data_message(i)
+                print(Green + Bold + Underline + f"Resolved this Duplicate: {i + 1}" + Reset)
+                self.print_collected_data_message(i + 1)
 
     def close_browser(self):
         print(Yellow + "Closing the browser..." + Reset)
