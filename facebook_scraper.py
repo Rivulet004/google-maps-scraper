@@ -20,15 +20,17 @@ class FacebookEmailScraper:
             else:
                 facebook_url = facebook_url + "/about"
 
-            self.driver.get(facebook_url)
+            try:
+                self.driver.get(facebook_url)
+            except TimeoutException:
+                pass
             time.sleep(0.5)
 
             # Close popup
             try:
-                popup = WebDriverWait(self.driver, 10).until(
+                popup = WebDriverWait(self.driver, 3).until(
                     EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Close']"))
                 )
-                # popup = self.driver.find_element(By.XPATH, "//div[@aria-label='Close']")
                 popup.click()
                 time.sleep(0.5)
             except TimeoutException:
@@ -42,7 +44,7 @@ class FacebookEmailScraper:
                 )
                 email = email_element.text
             except NoSuchElementException:
-                print("Can't find email")
+                print("Can't find email From FaceBook")
                 email = None
 
             self.driver.close()

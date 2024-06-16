@@ -12,8 +12,9 @@ def timed():
             func(*args, **kwargs)
             end = time.time()
             time_taken = end - start
-            print(Cyan + Magenta + Green + f"Time Taken:  {time_taken}" + Reset)
-            return round(time_taken, 2)
+            rounded_time = round(time_taken, 2)
+            print(Cyan + Magenta + Red + f"Time Taken:  {rounded_time} secs" + Reset)
+            return rounded_time
 
         return wrapper
 

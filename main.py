@@ -14,6 +14,8 @@ def main():
     else:
         location = pyperclip.paste()
 
+    location = location.strip()
+
     # Check if the directory exists to save file if not then create the directory
     if not os.path.exists(f"data/{location}"):
         os.makedirs(f"data/{location}")
