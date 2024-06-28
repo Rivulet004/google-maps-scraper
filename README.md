@@ -85,8 +85,8 @@ This project is intended for local use. For deployment in a production environme
   This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## Credits
-  Rivulet004
-  Selenium
+1. Rivulet004
+2. Selenium
 
 ## Contact
   Emails:
