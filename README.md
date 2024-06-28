@@ -57,6 +57,7 @@ This can be further configured to extract the specific reviews from each listing
 
 ## Usage
 1. Run Scraper with the required parameters
+   
    ```bash
   python3 main.py "Houston, TX, USA"
 
@@ -72,10 +73,10 @@ This can be further configured to extract the specific reviews from each listing
 
 ## Testing
   (I have not implemented the tests you can help in desigingnin the tests)
-  To run tests, use:
+1. To run tests, use:
     ```bash
     python -m unittest discover tests
-  Ensure that all tests pass before submitting a pull request.
+2. Ensure that all tests pass before submitting a pull request.
 
 ## Deployment
 This project is intended for local use. For deployment in a production environment, consider containerizing it with Docker and using cloud services for scalability.
