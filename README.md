@@ -4,14 +4,14 @@
 This project is a web scraper that extracts data from Google Maps.
 It uses Selenium for web automation and for retireving data.
 The scraper is configured to gather information:
-  -Business Name
-  -Business type
-  -Email (will extract only it the website given is a facebook link and the email is provied there)
-  -The url of the google maps listing
-  -Rating of Business
-  -Location of Business
-  -Contact Number 
-  -Website (if provided)
+  - Business Name
+  - Business type
+  - Email (will extract only it the website given is a facebook link and the email is provied there)
+  - The url of the google maps listing
+  - Rating of Business
+  - Location of Business
+  - Contact Number 
+  - Website (if provided)
 
 This can be further configured to extract the specific reviews from each listing but this feature is currently in development and is not implemented
 
