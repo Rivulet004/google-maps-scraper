@@ -12,7 +12,9 @@ def handle_stale_exception(retries=3, delay=0.4):
                 try:
                     return func(*args, **kwargs)
                 except StaleElementReferenceException:
-                    print(f'StaleElementReferenceException <<=>> Retrying {attempt + 1} times')
+                    print(
+                        f"StaleElementReferenceException <<=>> Retrying {attempt + 1} times"
+                    )
                     time.sleep(delay)
                 print(f"Retried {retries} times, Skipping to the next element")
             return None
@@ -20,5 +22,3 @@ def handle_stale_exception(retries=3, delay=0.4):
         return wrapper
 
     return decorator
-
-

@@ -14,11 +14,13 @@ def main():
     else:
         location = pyperclip.paste()
 
+    location = location.strip()
+
     # Check if the directory exists to save file if not then create the directory
     if not os.path.exists(f"data/{location}"):
         os.makedirs(f"data/{location}")
 
-    with open("business_list.txt", "r") as file:
+    with open("search_list.txt", "r") as file:
         business_list = file.readlines()
 
     cleaned_business_list = [entry.strip() for entry in business_list]
