@@ -82,7 +82,7 @@ This can be further configured to extract the specific reviews from each listing
 This project is intended for local use. For deployment in a production environment, consider containerizing it with Docker and using cloud services for scalability.
 
 ## License
-  This project is licensed under the MIT License - see the LICENSE file for details.
+  This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Credits
 1. Rivulet004
