@@ -1,6 +1,6 @@
 import time
 import csv
-# import pandas as pd
+import re
 import urllib.parse
 import logging
 import os
@@ -22,19 +22,19 @@ from helper import timed
 from color_and_styles import *
 
 # Logger
-timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 if not os.path.exists("logs"):
     os.makedirs("logs")
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
     handlers=[
         logging.FileHandler(f"logs/scraper_{timestamp}.log"),
         logging.StreamHandler(),
-    ]
+    ],
 )
 
 logger = logging.getLogger(__name__)
@@ -102,7 +102,9 @@ class ScrapGoogleMap:
         self.all_listings = self.driver.find_elements(By.CLASS_NAME, "hfpxzc")
         if self.all_listings:
             print(f"{len(self.all_listings)} listings retrieved")
-            logger.info(f"{len(self.all_listings)} listings retrieved for the query: {self.query}")
+            logger.info(
+                f"{len(self.all_listings)} listings retrieved for the query: {self.query}"
+            )
             self.counter = len(self.all_listings)
         else:
             print(Yellow + "No listings found" + Reset)
@@ -118,7 +120,9 @@ class ScrapGoogleMap:
         for listing in self.all_listings:
             self.initialize_location_data()
             self.print_collecting_message(i)
-            logger.info(f"Collecting data for listing {i} out of {len(self.all_listings)}")
+            logger.info(
+                f"Collecting data for listing {i} out of {len(self.all_listings)}"
+            )
             if not self.click_listing(listing):
                 i += 1
                 continue
@@ -167,17 +171,44 @@ class ScrapGoogleMap:
             "claimed": "NA",
         }
 
+    def clean_text(self, text, data_type="text"):
+        """
+        Cleans the given text based on the data type.
+
+        Parameters:
+        text (str): The text to be cleaned.
+        data_type (str): The type of data ('location' or 'phone').
+
+        Returns:
+        str: The cleaned text.
+        """
+        if data_type == "location":
+            # Remove unwanted characters for location
+            cleaned_text = re.sub(r"[^\x00-\x7F]+", "", text)
+        elif data_type == "phone":
+            # Remove unwanted characters for phone number, keeping only digits and '+'
+            cleaned_text = re.sub(r"[^\d+]", "", text)
+        else:
+            # Default cleaning (remove non-ASCII characters)
+            cleaned_text = re.sub(r"[^\x00-\x7F]+", "", text)
+
+        return cleaned_text.strip()
+
     def extract_listing_data(self):
         logger.info("Extracting Data form the listing")
         try:
             self.name = self.get_element_text(By.CSS_SELECTOR, ".DUwDvf.lfPIob", "Name")
             self.listing_url = self.driver.current_url
-            self.type_of_business = self.get_element_text(By.CLASS_NAME, "DkEaL", "Type")
+            self.type_of_business = self.get_element_text(
+                By.CLASS_NAME, "DkEaL", "Type"
+            )
             self.avg_rating = self.get_element_text(
                 By.CSS_SELECTOR, ".F7nice > span > span[aria-hidden='true']", "Rating"
             )
             self.reviews_count = self.get_element_text(
-                By.CSS_SELECTOR, ".F7nice > span > span > span[aria-label*='reviews']", "Total Reviewers"
+                By.CSS_SELECTOR,
+                ".F7nice > span > span > span[aria-label*='reviews']",
+                "Total Reviewers",
             )
             self.address = self.get_element_text(
                 By.CSS_SELECTOR, "[data-item-id='address']", "Address"
@@ -198,6 +229,32 @@ class ScrapGoogleMap:
                 self.email = "NA"
         except Exception as e:
             logger.error("Could not extract data from the listing", exc_info=True)
+
+    def assign_collected_data(self):
+        logger.info("Assigning Collected data to the dictionary")
+        try:
+            self.location_data["name"] = self.clean_text(self.name) if self.name else "NA"
+            self.location_data["type"] = (
+                self.clean_text(self.type_of_business) if self.type_of_business else "NA"
+            )
+            self.location_data["listing-url"] = (
+                self.clean_text(self.listing_url) if self.listing_url else "NA"
+            )
+            self.location_data["rating"] = self.clean_text(self.avg_rating) if self.avg_rating else "NA"
+            self.location_data["reviews_count"] = (
+                self.clean_text(self.reviews_count) if self.reviews_count else "NA"
+            )
+            self.location_data["location"] = self.clean_text(self.address, "location") if self.address else "NA"
+            self.location_data["contact"] = (
+                self.clean_text(self.phone_number, "phone") if self.phone_number else "NA"
+            )
+            self.location_data["website"] = (
+                self.clean_text(self.website_url) if self.website_url else "NA"
+            )
+            self.location_data["claimed"] = False if self.is_not_claimed else True
+            self.location_data["email"] = self.email
+        except Exception as e:
+            logger.error("Could not assign collected data", exc_info=True)
 
     def get_element(self, by, value, element_name="not_specified"):
         logger.info(f"Trying to get {element_name}")
@@ -229,33 +286,37 @@ class ScrapGoogleMap:
     @handle_stale_exception(3)
     def get_website_url(self):
         if website_element := self.get_element(
-                By.CSS_SELECTOR, "a.lcr4fd.S9kvJb[data-tooltip='Open website']", "Website"
+            By.CSS_SELECTOR, "a.lcr4fd.S9kvJb[data-tooltip='Open website']", "Website"
         ):
             return website_element.get_attribute("href")
         else:
             return None
 
-    def assign_collected_data(self):
-        logger.info("Assigning Collected data to the dictionary")
-        try:
-            self.location_data["name"] = self.name if self.name else "NA"
-            self.location_data["type"] = (
-                self.type_of_business if self.type_of_business else "NA"
-            )
-            self.location_data["listing-url"] = (
-                self.listing_url if self.listing_url else "NA"
-            )
-            self.location_data["rating"] = self.avg_rating if self.avg_rating else "NA"
-            self.location_data["reviews_count"] = (
-                self.reviews_count if self.reviews_count else "NA"
-            )
-            self.location_data["location"] = self.address if self.address else "NA"
-            self.location_data["contact"] = self.phone_number if self.phone_number else "NA"
-            self.location_data["website"] = self.website_url if self.website_url else "NA"
-            self.location_data["claimed"] = False if self.is_not_claimed else True
-            self.location_data["email"] = self.email
-        except Exception as e:
-            logger.error("Could not assign collected data", exc_info=True)
+    def save_data_to_csv(self):
+        print(Yellow + "Saving collected data to CSV file..." + Reset)
+        logger.info("Writing Data to the .csv file")
+        if not self.list_info:
+            print(Red + "No data to write to CSV." + Reset)
+            logger.error("No data to write to CSV.")
+            return
+        with open(
+            f"data/{self.location}/{self.query}.csv",
+            mode="w",
+            newline="",
+            encoding="utf-8",
+        ) as file:
+            writer = csv.DictWriter(file, fieldnames=self.list_info[0].keys())
+
+            writer.writeheader()
+
+            for row in self.list_info:
+                writer.writerow(row)
+        print(Green + f"Data saved to {self.query}.csv successfully." + Reset)
+        logger.info("Data saved to the csv")
+
+    def print_collected_data_message(self, i):
+        logger.info(f"Collected data for {i}")
+        print(Green + f"Collected data from listing {i}:" + Reset)
 
     def check_for_duplicate(self, index):
         if index != 0:
@@ -277,32 +338,6 @@ class ScrapGoogleMap:
                     self.assign_collected_data()
         else:
             return
-
-    def print_collected_data_message(self, i):
-        logger.info(f"Collected data for {i}")
-        print(Green + f"Collected data from listing {i}:" + Reset)
-
-    def save_data_to_csv(self):
-        print(Yellow + "Saving collected data to CSV file..." + Reset)
-        logger.info("Writing Data to the .csv file")
-        if not self.list_info:
-            print(Red + "No data to write to CSV." + Reset)
-            logger.error("No data to write to CSV.")
-            return
-        with open(
-                f"data/{self.location}/{self.query}.csv",
-                mode="w",
-                newline="",
-                encoding="utf-8",
-        ) as file:
-            writer = csv.DictWriter(file, fieldnames=self.list_info[0].keys())
-
-            writer.writeheader()
-
-            for row in self.list_info:
-                writer.writerow(row)
-        print(Green + f"Data saved to {self.query}.csv successfully." + Reset)
-        logger.info("Data saved to the csv")
 
     def get_duplicates(self):
         self.duplicate_index = set()

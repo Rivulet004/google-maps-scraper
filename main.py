@@ -20,7 +20,7 @@ def main():
     if not os.path.exists(f"data/{location}"):
         os.makedirs(f"data/{location}")
 
-    with open("business_list.txt", "r") as file:
+    with open("search_list.txt", "r") as file:
         business_list = file.readlines()
 
     cleaned_business_list = [entry.strip() for entry in business_list]
