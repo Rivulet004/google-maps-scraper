@@ -40,23 +40,27 @@ This can be further configured to extract the specific reviews from each listing
    cd google-maps-scraper
 
 2. Create a Virtual Enviorment:
-  
+   ```bash
    python -m venv .venv
    
 
 4. Activate the Virtual Enviorment:
+   ```bash
    # windows
    .venv/Scripts/Activate.ps1
    # linux
    source venv/bin/activate
    
 6. Install the required packages
+   ```bash
    pip install -r requirements.txt
 
 ## Usage
   Run Scraper with the required parameters
+  ```bash
   python3 main.py "Houston, TX, USA"
   or (this parse the text copied to the clipboard so make sure that the text is corrent location, using this method in not recomended"
+  ```bash
   python main.py 
 
 ## Configuration
@@ -68,6 +72,7 @@ This can be further configured to extract the specific reviews from each listing
 ## Testing
   (I have not implemented the tests you can help in desigingnin the tests)
   To run tests, use:
+    ```bash
     python -m unittest discover tests
   Ensure that all tests pass before submitting a pull request.
 
