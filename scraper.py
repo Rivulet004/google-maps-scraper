@@ -45,7 +45,9 @@ class ScrapGoogleMap:
         self.query = query
         self.location = location
         self.type = business_type
-        self.driver = webdriver.Firefox()
+        self.options = webdriver.FirefoxOptions
+        self.options.add_argument("--headless")
+        self.driver = webdriver.Firefox(self.options)
         self.all_listings = []
         self.list_info = []
         self.location_data = {}
