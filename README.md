@@ -57,13 +57,13 @@ This can be further configured to extract the specific reviews from each listing
 
 ## Usage
 1. Run Scraper with the required parameters
-   
+
    ```bash
-  python3 main.py "Houston, TX, USA"
+   python3 main.py "Houston, TX, USA"
 
 2. or (this parse the text copied to the clipboard so make sure that the text is corrent location, using this method in not recomended"
    ```bash
-  python main.py 
+   python3 main.py 
 
 ## Configuration
   Yet to make
