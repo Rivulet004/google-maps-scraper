@@ -43,7 +43,6 @@ This can be further configured to extract the specific reviews from each listing
    ```bash
    python -m venv .venv
    
-
 4. Activate the Virtual Enviorment:
    ```bash
    # windows
